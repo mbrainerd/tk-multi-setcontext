@@ -11,7 +11,7 @@
 
 from sgtk.platform import Application
 
-class StgkStarterApp(Application):
+class SetContextApp(Application):
     """
     The app entry point. This class is responsible for intializing and tearing down
     the application, handle menu registration etc.
@@ -21,21 +21,31 @@ class StgkStarterApp(Application):
         """
         Called as the application is being initialized
         """
-        
-        # first, we use the special import_module command to access the app module
-        # that resides inside the python folder in the app. This is where the actual UI
-        # and business logic of the app is kept. By using the import_module command,
-        # toolkit's code reload mechanism will work properly.
-        app_payload = self.import_module("app")
+        tk_multi_setcontext = self.import_module("tk_multi_setcontext")
 
-        # now register a *command*, which is normally a menu entry of some kind on a Shotgun
-        # menu (but it depends on the engine). The engine will manage this command and 
-        # whenever the user requests the command, it will call out to the callback.
+        display_name = self.get_setting("display_name")
 
-        # first, set up our callback, calling out to a method inside the app module contained
-        # in the python folder of the app
-        menu_callback = lambda : app_payload.dialog.show_dialog(self)
+        command_name = display_name.lower()
+        command_name = re.sub('[^0-9a-zA-Z]+', '_', command_name)
 
-        # now register the command with the engine
-        self.engine.register_command("Show Starter Template App...", menu_callback)
-        
+        # register command
+        cb = lambda: tk_multi_setcontext.dialog.show_dialog(self)
+        menu_caption = "%s..." % display_name
+        menu_options = {
+            "short_name": command_name,
+            "description": "Set the current SGTK Context",
+        }
+        self.engine.register_command(menu_caption, cb, menu_options)
+
+    @property
+    def context_change_allowed(self):
+        """
+        Specifies that context changes are allowed.
+        """
+        return True
+
+    def destroy_app(self):
+        """
+        Tear down the app
+        """
+        self.log_debug("Destroying tk-multi-setcontext")
