@@ -10,7 +10,6 @@
 
 import sgtk
 from sgtk.platform.qt import QtCore, QtGui
-#from .ui.dialog import Ui_Dialog
 
 # import the context_selector module from the qtwidgets framework
 context_selector = sgtk.platform.import_framework(
@@ -33,10 +32,10 @@ def show_dialog(app_instance):
     display_name = sgtk.platform.current_bundle().get_setting("display_name")
 
     # start ui
-    app_instance.engine.show_dialog(display_name, app_instance, AppDialog)
+    app_instance.engine.show_dialog(display_name, app_instance, SetContextWidget)
     
 
-class AppDialog(QtGui.QWidget):
+class SetContextWidget(QtGui.QWidget):
     """
     A thin wrapper around the ContextSelector class available in the
     tk-frameworks-qtwidgets framework.
@@ -47,11 +46,11 @@ class AppDialog(QtGui.QWidget):
         Initialize the widget instance.
         """
         # call the base class init
-        super(AppDialog, self).__init__(parent)
+        super(SetContextWidget, self).__init__(parent)
 
-        # now load in the UI that was created in the UI designer
-#        self.ui = Ui_Dialog() 
-#        self.ui.setupUi(self)
+        # Resize this widget
+        self.setObjectName("SetContextWidget")
+        self.resize(350, 150)
         
         # most of the useful accessors are available through the Application class instance
         # it is often handy to keep a reference to this. You can get it via the following method:
@@ -62,56 +61,67 @@ class AppDialog(QtGui.QWidget):
 
         self._context_widget = context_selector.ContextWidget(self)
         self._context_widget.set_up(self._task_manager)
-        self._context_widget.setFixedWidth(400)
 
-        # Specify what entries should show up in the list of links when using
-        # the auto completer. In this case, we only show entity types that are
-        # allowed for the PublishedFile.entity field. You can provide an
-        # explicit list with the `restrict_entity_types()` method.
-        self._context_widget.restrict_entity_types_by_link(
-            "PublishedFile", "entity")
-
-        # You can set the tooltip for each sub widget for context selection.
-        # This helps describe to the user why they're choosing a task or link.
-        self._context_widget.set_task_tooltip(
-            "<p>The task that the selected item will be associated with "
-            "the Shotgun entity being acted upon.</p>"
-        )
-        self._context_widget.set_link_tooltip(
-            "<p>The link that the selected item will be associated with "
-            "the Shotgun entity being acted upon.</p>"
-        )
+        # If specified, restrict what entries should show up in the list of links when using
+        # the auto completer.
+        link_entity_types = self._app.get_setting("link_entity_types")
+        if link_entity_types:
+            self._context_widget.restrict_entity_types(link_entity_types)
+        else:
+            # Else, we only show entity types that are allowed for the Task.entity field.
+            self._context_widget.restrict_entity_types_by_link("Task", "entity")
 
         # connect the signal emitted by the selector widget when a context is
         # selected. The connected callable should accept a context object.
         self._context_widget.context_changed.connect(
             self._on_item_context_change)
 
-        # just a label to display the selected context as text
-        self._context_lbl = QtGui.QLabel()
-
         # a button to toggle editing. the widget's editing capabilities can be
         # turned on/off. you can set the text to display in either state by
         # supplying it as an argument to the `enable_editing` method on the
         # widget. See the connected callable (self._select_context) for an
         # example.
-        _select_context_btn = QtGui.QPushButton("Select")
-        _select_context_btn.setFixedWidth(150)
-        _select_context_btn.clicked.connect(self._select_context)
+        self._cancel_btn = QtGui.QPushButton("Cancel")
+        self._cancel_btn.setObjectName("_cancel_btn")
+        _sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+        _sizePolicy.setHorizontalStretch(0)
+        _sizePolicy.setVerticalStretch(0)
+        _sizePolicy.setHeightForWidth(self._cancel_btn.sizePolicy().hasHeightForWidth())
+        self._cancel_btn.setSizePolicy(_sizePolicy)
+        self._cancel_btn.clicked.connect(self.close)
+
+        self._select_btn = QtGui.QPushButton("Select")
+        self._select_btn.setObjectName("_select_btn")
+        _sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+        _sizePolicy.setHorizontalStretch(0)
+        _sizePolicy.setVerticalStretch(0)
+        _sizePolicy.setHeightForWidth(self._select_btn.sizePolicy().hasHeightForWidth())
+        self._select_btn.setSizePolicy(_sizePolicy)
+        self._select_btn.clicked.connect(self._on_select)
+
+        # Disable the Select button if no task is selected and we require that
+        if self._app.get_setting("require_task_selection") and \
+           self._app.context.task is None:
+            self._select_btn.setEnabled(False)
 
         # lay out the widgets
-        layout = QtGui.QVBoxLayout(self)
-        layout.setAlignment(QtCore.Qt.AlignHCenter)
-        layout.addStretch()
-        layout.addWidget(self._context_widget)
-        layout.addSpacing(12)
-        layout.addWidget(_select_context_btn)
-        layout.addWidget(self._context_lbl)
-        layout.addStretch()
+        main_layout = QtGui.QVBoxLayout(self)
+        main_layout.setObjectName("main_layout")
+        main_layout.setAlignment(QtCore.Qt.AlignHCenter)
+        main_layout.addWidget(self._context_widget)
+        main_layout.addStretch()
+        main_layout.addSpacing(17)
+
+        horiz_layout = QtGui.QHBoxLayout()
+        horiz_layout.setObjectName("horiz_layout")
+        horiz_layout.setAlignment(QtCore.Qt.AlignBottom|QtCore.Qt.AlignLeading|QtCore.Qt.AlignRight)
+        horiz_layout.addWidget(self._cancel_btn)
+        horiz_layout.addWidget(self._select_btn)
+        main_layout.addLayout(horiz_layout)
 
         # you can set a context using the `set_context()` method. Here we set it
         # to the current bundle's context
-        self._context_widget.set_context(sgtk.platform.current_bundle().context)
+        self._context_widget.set_context(self._app.context)
 
     def closeEvent(self, event):
         """
@@ -141,21 +151,25 @@ class AppDialog(QtGui.QWidget):
 
         For demo purposes, we simply display the context in a label.
         """
-        self._context_lbl.setText("Context set to: %s" % (context,))
-
         # typically the context would be set by some external process. for now,
         # we'll just re-set the context based on what was selected. this will
         # have the added effect of populating the "recent" items in the drop
         # down list
         self._context_widget.set_context(context)
 
-    def _select_context(self):
+        # Disable the Select button if no task is selected and we require that
+        if self._app.get_setting("require_task_selection") and \
+           context.task is None:
+            self._select_btn.setEnabled(False)
+        else:
+            self._select_btn.setEnabled(True)
+
+    def _on_select(self):
         """
         This method is connected above to the select button to show switching
         between enabling and disabling editing of the context.
         """
-        current_context = self._app.context
-        selected_context = self._context_widget.get_context()
+        selected_context = self._context_widget._context
         if selected_context != self._app.context:
             sgtk.platform.change_context(selected_context)
 

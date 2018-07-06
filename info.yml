@@ -12,7 +12,24 @@
 
 
 # expected fields in the configuration file for this app
-configuration: {}
+configuration:
+    display_name:
+        type: str
+        default_value: Select Context
+        description: Specify the name that should be used in menus and the main dialog
+
+    require_task_selection:
+        type: bool
+        default_value: false
+        description: Controls whether or not the app requires the user to select a Task entity
+
+    link_entity_types:
+        type: list
+        default_value: []
+        allows_empty: True
+        description: "List of entity types that should show up in the list of links when using
+                     the auto completer. Default is all entity types allowed for Task.entity"
+        values: { type: str }
 
 # the Shotgun fields that this app needs in order to operate correctly
 requires_shotgun_fields:
@@ -26,12 +43,13 @@ description:
 
 # Required minimum versions for this item to run
 requires_shotgun_version:
-requires_core_version: "v0.14.0"
-requires_engine_version:
+requires_core_version: "v0.18.122"
+requires_engine_version: 
+
+# this app works in all engines - it does not contain 
+# any host application specific commands
+supported_engines: 
 
 frameworks:
-    - {"name": "tk-framework-shotgunutils", "version": "v4.x.x"}
-    - {"name": "tk-framework-qtwidgets", "version": "v2.x.x"}
-
-# the engines that this app can operate in:
-supported_engines: 
+    - {"name": "tk-framework-shotgunutils", "version": "v5.x.x"}
+    - {"name": "tk-framework-qtwidgets", "version": "v2.x.x", "minimum_version": "v2.7.0"}

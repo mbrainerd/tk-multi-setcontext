@@ -1,4 +1,4 @@
-# Copyright (c) 2013 Shotgun Software Inc.
+# Copyright (c) 2017 Shotgun Software Inc.
 # 
 # CONFIDENTIAL AND PROPRIETARY
 # 
@@ -8,10 +8,13 @@
 # agreement to the Shotgun Pipeline Toolkit Source Code License. All rights 
 # not expressly granted therein are reserved by Shotgun Software Inc.
 
+import os
+import sgtk
+import re
 
-from sgtk.platform import Application
+logger = sgtk.platform.get_logger(__name__)
 
-class SetContextApp(Application):
+class SetContextApp(sgtk.platform.Application):
     """
     The app entry point. This class is responsible for intializing and tearing down
     the application, handle menu registration etc.
